@@ -1,10 +1,11 @@
 from fastapi import FastAPI, File, UploadFile
 import requests
+import base64
 from sqlalchemy import Column, Integer, String, Float, DateTime
 from datetime import datetime
 from database import Base, engine, SessionLocal
 
-# 1. Veritabanı Tablo Yapısını Oluştur (Hafıza)
+# 1. Veritabanı Tablo Yapısı
 class TaramaGecmisi(Base):
     __tablename__ = "taramalar"
     id = Column(Integer, primary_key=True, index=True)
@@ -13,47 +14,59 @@ class TaramaGecmisi(Base):
     bakim_notu = Column(String)
     tarih = Column(DateTime, default=datetime.utcnow)
 
-# Frankfurt'taki veritabanında tabloyu oluştur
+# Tabloyu oluştur
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-API_KEY = "2b10mlep2lyP5fp2wfjE3LUxe"
+# 🎯 YENİ API AYARLARI (KINDWISE)
+KINDWISE_KEY = "kcI3xPhsvU0tCvFrvwN27TLB7IHf9tj5RcXeUIZnKb8xCYZRRz"
+KINDWISE_URL = "https://plant.id/api/v3/identification"
 
-# Bitki Bilgi Bankası
+# Bitki Bilgi Bankası (Şimdilik manuel, haftaya otomatikleşecek)
 PLANT_INFO = {
-    "Papatya": {"bakim": "Haftada 2 kez sula.", "gunes": "Doğrudan güneş sever.", "uyari": "Toprağı kurudukça su ver."},
-    "Orkide": {"bakim": "10 günde bir daldırma sulama yap.", "gunes": "Yarı gölge sever.", "uyari": "Yapraklarına su değdirme."},
+    "Daisy": {"bakim": "Haftada 2 kez sula.", "gunes": "Doğrudan güneş sever.", "uyari": "Toprağı kurudukça su ver."},
+    "Orchid": {"bakim": "10 günde bir daldırma sulama yap.", "gunes": "Yarı gölge sever.", "uyari": "Yapraklarına su değdirme."},
     "Default": {"bakim": "Düzenli kontrol et.", "gunes": "Aydınlık ortam.", "uyari": "Fazla sudan kaçın."}
 }
 
 @app.get("/")
 async def root():
-    return {"mesaj": "Green Lens Bulut Backend Aktif! 🚀"}
+    return {"mesaj": "Green Lens Pro: Kindwise Gözü Aktif! 🚀"}
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     db = SessionLocal()
     try:
-        # 1. Resmi PlantNet'e gönder
+        # 1. Resmi oku ve Base64 formatına çevir (Kindwise bunu ister)
         image_data = await file.read()
-        url = f"https://my-api.plantnet.org/v2/identify/all?api-key={API_KEY}"
-        files = {'images': (file.filename, image_data)}
+        base64_image = base64.b64encode(image_data).decode("ascii")
         
-        response = requests.post(url, files=files)
+        # 2. Kindwise API'ye Gönder
+        headers = {"Api-Key": KINDWISE_KEY, "Content-Type": "application/json"}
+        payload = {
+            "images": [base64_image],
+            "latitude": 41.38, # Kastamonu koordinatları (isabeti artırır)
+            "longitude": 33.77,
+            "similar_images": True
+        }
+        
+        response = requests.post(KINDWISE_URL, json=payload, headers=headers)
         data = response.json()
 
-        if "results" in data and len(data["results"]) > 0:
-            best = data["results"][0]
-            sci_name = best["species"]["scientificNameWithoutAuthor"]
-            name = best["species"]["commonNames"][0] if best["species"]["commonNames"] else sci_name
+        # 3. Sonuçları İşle
+        if "result" in data and data["result"]["classification"]["suggestions"]:
+            best = data["result"]["classification"]["suggestions"][0]
+            name = best["name"] # Kindwise İngilizce isim döner
+            score = float(best["probability"])
             
+            # Veritabanı için bilgi eşleştirme
             info = PLANT_INFO.get(name, PLANT_INFO["Default"])
             
-            # 2. BULUTA KAYDET: Frankfurt'taki veritabanına yazıyoruz
+            # 4. BULUTA KAYDET (Frankfurt)
             yeni_kayit = TaramaGecmisi(
                 bitki_adi=name,
-                guven_orani=float(best["score"]),
+                guven_orani=score,
                 bakim_notu=info["bakim"]
             )
             db.add(yeni_kayit)
@@ -61,7 +74,7 @@ async def predict(file: UploadFile = File(...)):
             
             return {
                 "name": name,
-                "score": best["score"],
+                "score": score,
                 "care": info["bakim"],
                 "sun": info["gunes"],
                 "warning": info["uyari"]
@@ -70,16 +83,16 @@ async def predict(file: UploadFile = File(...)):
         return {"name": "Bilinmeyen Bitki", "score": 0, "care": "-", "sun": "-", "warning": "-"}
 
     except Exception as e:
+        print(f"Hata Detayı: {str(e)}")
         return {"error": str(e)}
     finally:
         db.close()
-        
+
 @app.get("/history")
 async def get_history():
     db = SessionLocal()
     try:
-        # Son 20 taramayı tarihe göre tersten getiriyoruz
         history = db.query(TaramaGecmisi).order_by(TaramaGecmisi.tarih.desc()).limit(20).all()
         return history
     finally:
-        db.close()       
+        db.close()
