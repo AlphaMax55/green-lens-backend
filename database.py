@@ -2,9 +2,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Senin Render External URL'in
-SQLALCHEMY_DATABASE_URL = "postgresql://omer:aUicMYRCDfvEaj31J1uFfemBUfC3pcWb@dpg-d6ecsd08tnhs73emu65g-a/green_lens"
+# 🎯 SUPABASE FINAL CONNECTION (Sydney Line)
+# Şifren olan 'Eomer3255..' başarıyla yerleştirildi.
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:Eomer3255..@db.qqkyjsafhevywgdaywvk.supabase.co:5432/postgres"
 
+# Not: Şifredeki noktalar (.) sorun çıkarırsa SQLAlchemy otomatik halleder, 
+# ancak bağlantı hatası alırsan burayı 'Eomer3255%2E%2E' olarak güncelleriz.
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -15,5 +18,4 @@ def get_db():
     try:
         yield db
     finally:
-
         db.close()
