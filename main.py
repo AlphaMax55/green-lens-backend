@@ -5,84 +5,68 @@ from sqlalchemy import Column, Integer, String, Float, DateTime
 from datetime import datetime
 from database import Base, engine, SessionLocal
 
-# 1. Veritabanı Tablo Yapısı (Aynı kalıyor, Frankfurt hattı aktif)
+# 1. Veritabanı Tablosu (Frankfurt PostgreSQL)
 class TaramaGecmisi(Base):
     __tablename__ = "taramalar"
     id = Column(Integer, primary_key=True, index=True)
     bitki_adi = Column(String)
     guven_orani = Column(Float)
-    bakim_notu = Column(String)
     tarih = Column(DateTime, default=datetime.utcnow)
 
 Base.metadata.create_all(bind=engine)
-
 app = FastAPI()
 
-# 🎯 SINIRSIZ API AYARLARI (Pl@ntNet)
-# Not: Kendi API key'ini buraya yapıştır reis
+# 🎯 SINIRSIZ API VE TÜRKÇE DİL DESTEĞİ
 PLANET_API_KEY = "2b10IuE06X6U6T6E6f6P6o6R6n" 
-PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_KEY}"
-
-# Gelişmiş Bilgi Bankası
-PLANT_INFO = {
-    "Punica granatum": {"tr": "Nar", "bakim": "Güneşli yerleri sever, toprağı kurudukça sula."},
-    "Schefflera": {"tr": "Beşparmak Otu", "bakim": "Aydınlık ama direkt güneş almayan yer sever."},
-    "Default": {"tr": "Bilinmeyen Tür", "bakim": "Düzenli kontrol et, fazla sudan kaçın."}
-}
+# URL'ye &lang=tr ekleyerek Türkçe isimleri aktif ediyoruz
+PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_KEY}&lang=tr"
 
 @app.get("/")
 async def root():
-    return {"mesaj": "Green Lens Pro: Pl@ntNet Sınırsız Motor Aktif! 🚀"}
+    return {"mesaj": "Green Lens Pro: Full Online Devri Başladı! 🚀"}
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     db = SessionLocal()
     try:
-        # 1. Resmi Pl@ntNet'e gönderilecek formata hazırla
-        # Kindwise gibi Base64 istemez, direkt dosya (binary) göndeririz.
         contents = await file.read()
         files = [('images', (file.filename, contents))]
-        
-        # 🎯 KRİTİK AYAR: Organ belirtmezsek Pl@ntNet "0" döner!
         data = {'organs': ['leaf']} 
 
-        # 2. Pl@ntNet API'ye Soteleme
+        # Pl@ntNet API Sotelemesi
         response = requests.post(PLANET_URL, files=files, data=data)
         result_data = response.json()
 
-        # 3. Sonuçları İşle
         if "results" in result_data and len(result_data["results"]) > 0:
             best = result_data["results"][0]
             scientific_name = best["species"]["scientificNameWithoutAuthor"]
+            
+            # 🇹🇷 API'den gelen Türkçe ismi yakalıyoruz
+            common_names = best["species"].get("commonNames", [])
+            tr_name = common_names[0] if common_names else scientific_name
+            
             score = float(best["score"])
             
-            # Türkçe isim ve bakım notu eşleştirme
-            # (Haftaya bunu tamamen otomatik veritabanından çekeceğiz)
-            info = PLANT_INFO.get(scientific_name, PLANT_INFO["Default"])
-            tr_name = info["tr"]
-            
-            # 4. BULUTA KAYDET (Frankfurt PostgreSQL)
+            # 🗄️ BULUTA KAYDET
             yeni_kayit = TaramaGecmisi(
                 bitki_adi=scientific_name,
-                guven_orani=score,
-                bakim_notu=info["bakim"]
+                guven_orani=score
             )
             db.add(yeni_kayit)
             db.commit()
             
+            # 🚀 FLUTTER'IN BEKLEDİĞİ DEĞİŞKENLERİ GÖNDERİYORUZ
             return {
-                "name": scientific_name,
-                "tr_name": tr_name,
-                "score": score,
-                "care": info["bakim"],
+                "tr_name": tr_name,           # Flutter bunu en başa yazar
+                "scientific_name": scientific_name, # Flutter bunu italik yazar
+                "score": score,               # Güven skoru
                 "status": "Success"
             }
         
-        return {"error": "Bitki tanımlanamadı (0 sonuç)", "status": "Fail"}
+        return {"tr_name": "Bitki Tanınamadı", "score": 0.0, "status": "Fail"}
 
     except Exception as e:
-        print(f"🔥 Hata Detayı: {str(e)}")
-        return {"error": str(e), "status": "Error"}
+        return {"tr_name": "Bağlantı Hatası", "score": 0.0, "status": "Error", "detail": str(e)}
     finally:
         db.close()
 
@@ -90,12 +74,13 @@ async def predict(file: UploadFile = File(...)):
 async def get_history():
     db = SessionLocal()
     try:
+        # Geçmişi tarihe göre sıralayıp getiriyoruz
         history = db.query(TaramaGecmisi).order_by(TaramaGecmisi.tarih.desc()).limit(20).all()
         return history
     finally:
         db.close()
 
-# 🚀 Render için Port Ayarı (Full Online için şart!)
+# Render Port Ayarı
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
