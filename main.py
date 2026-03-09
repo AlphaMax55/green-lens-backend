@@ -18,13 +18,14 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# 🎯 Pl@ntNet API Ayarları (Sadece Bilimsel İsim)
+# 🎯 Pl@ntNet API Ayarları (Senin Gerçek Anahtarınla!)
+# Burayı senin verdiğin anahtarla mühürledik reis
 PLANET_API_KEY = "2b10mlep2lyP5fp2wfjE3LUxe" 
 PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_KEY}"
 
 @app.get("/")
 async def root():
-    return {"mesaj": "Green Lens Pro: Frankfurt Bulut Hattı Aktif! 🚀"}
+    return {"mesaj": "Green Lens Pro: Frankfurt Hattı Gerçek API ile Aktif! 🚀"}
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
@@ -41,7 +42,7 @@ async def predict(file: UploadFile = File(...)):
 
         if "results" in result_data and len(result_data["results"]) > 0:
             best = result_data["results"][0]
-            # Sadece Bilimsel İsim Alıyoruz (En Sağlamı)
+            # Bilimsel İsim Alıyoruz
             scientific_name = best["species"]["scientificNameWithoutAuthor"]
             score = float(best["score"])
             
@@ -53,7 +54,7 @@ async def predict(file: UploadFile = File(...)):
             db.add(yeni_kayit)
             db.commit()
             
-            # Flutter'ın beklediği "scientific_name" anahtarıyla gönderiyoruz
+            # Flutter tarafındaki 'scientific_name' ve 'score' ile %100 uyumlu return
             return {
                 "scientific_name": scientific_name,
                 "score": score,
@@ -83,4 +84,3 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
