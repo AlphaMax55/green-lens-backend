@@ -19,7 +19,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # 🎯 Pl@ntNet API Ayarları (Sadece Bilimsel İsim)
-PLANET_API_KEY = "2b10IuE06X6U6T6E6f6P6o6R6n" 
+PLANET_API_KEY = "2b10mlep2lyP5fp2wfjE3LUxe" 
 PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_KEY}"
 
 @app.get("/")
@@ -83,3 +83,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
