@@ -25,6 +25,13 @@ PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_K
 async def root():
     return {"mesaj": "Green Lens Pro: Full Online Devri Başladı! 🚀"}
 
+# ... (Importlar ve Database kısımları aynı kalıyor)
+
+# 🎯 SADECE BİLİMSEL İSİM ODAKLI API
+PLANET_API_KEY = "2b10IuE06X6U6T6E6f6P6o6R6n" 
+# &lang=tr kısmını sildik, en stabil hali bu
+PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_KEY}"
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     db = SessionLocal()
@@ -33,40 +40,30 @@ async def predict(file: UploadFile = File(...)):
         files = [('images', (file.filename, contents))]
         data = {'organs': ['leaf']} 
 
-        # Pl@ntNet API Sotelemesi
         response = requests.post(PLANET_URL, files=files, data=data)
         result_data = response.json()
 
         if "results" in result_data and len(result_data["results"]) > 0:
             best = result_data["results"][0]
+            # Direkt bilimsel ismi alıyoruz
             scientific_name = best["species"]["scientificNameWithoutAuthor"]
-            
-            # 🇹🇷 API'den gelen Türkçe ismi yakalıyoruz
-            common_names = best["species"].get("commonNames", [])
-            tr_name = common_names[0] if common_names else scientific_name
-            
             score = float(best["score"])
             
-            # 🗄️ BULUTA KAYDET
-            yeni_kayit = TaramaGecmisi(
-                bitki_adi=scientific_name,
-                guven_orani=score
-            )
+            # Veritabanına kaydet (Frankfurt)
+            yeni_kayit = TaramaGecmisi(bitki_adi=scientific_name, guven_orani=score)
             db.add(yeni_kayit)
             db.commit()
             
-            # 🚀 FLUTTER'IN BEKLEDİĞİ DEĞİŞKENLERİ GÖNDERİYORUZ
+            # Flutter'a en sade haliyle gönderiyoruz
             return {
-                "tr_name": tr_name,           # Flutter bunu bekliyor
-                "scientific_name": scientific_name, # Flutter bunu bekliyor
-                "score": score,               # Flutter bunu bekliyor
+                "scientific_name": scientific_name,
+                "score": score,
                 "status": "Success"
             }
         
-        return {"tr_name": "Bitki Tanınamadı", "score": 0.0, "status": "Fail"}
-
+        return {"scientific_name": "Bilinmeyen Tür", "score": 0.0, "status": "Fail"}
     except Exception as e:
-        return {"tr_name": "Bağlantı Hatası", "score": 0.0, "status": "Error", "detail": str(e)}
+        return {"scientific_name": "Hata", "score": 0.0, "status": "Error"}
     finally:
         db.close()
 
@@ -85,5 +82,6 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 
