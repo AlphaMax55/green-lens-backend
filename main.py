@@ -57,9 +57,9 @@ async def predict(file: UploadFile = File(...)):
             
             # 🚀 FLUTTER'IN BEKLEDİĞİ DEĞİŞKENLERİ GÖNDERİYORUZ
             return {
-                "tr_name": tr_name,           # Flutter bunu en başa yazar
-                "scientific_name": scientific_name, # Flutter bunu italik yazar
-                "score": score,               # Güven skoru
+                "tr_name": tr_name,           # Flutter bunu bekliyor
+                "scientific_name": scientific_name, # Flutter bunu bekliyor
+                "score": score,               # Flutter bunu bekliyor
                 "status": "Success"
             }
         
@@ -85,4 +85,5 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
