@@ -19,7 +19,7 @@ app = FastAPI()
 # 🎯 SINIRSIZ API VE TÜRKÇE DİL DESTEĞİ
 PLANET_API_KEY = "2b10IuE06X6U6T6E6f6P6o6R6n" 
 # URL'ye &lang=tr ekleyerek Türkçe isimleri aktif ediyoruz
-PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_KEY}&lang=tr"
+PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_KEY}"
 
 @app.get("/")
 async def root():
@@ -85,3 +85,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
