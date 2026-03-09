@@ -38,51 +38,39 @@ async def root():
 async def predict(file: UploadFile = File(...)):
     db = SessionLocal()
     try:
-        # 1. Resmi Pl@ntNet'e gönderilecek formata hazırla
-        # Kindwise gibi Base64 istemez, direkt dosya (binary) göndeririz.
         contents = await file.read()
         files = [('images', (file.filename, contents))]
-        
-        # 🎯 KRİTİK AYAR: Organ belirtmezsek Pl@ntNet "0" döner!
         data = {'organs': ['leaf']} 
 
-        # 2. Pl@ntNet API'ye Soteleme
+        # Pl@ntNet API Çağrısı
         response = requests.post(PLANET_URL, files=files, data=data)
         result_data = response.json()
 
-        # 3. Sonuçları İşle
         if "results" in result_data and len(result_data["results"]) > 0:
             best = result_data["results"][0]
             scientific_name = best["species"]["scientificNameWithoutAuthor"]
+            common_names = best["species"].get("commonNames", [])
+            
+            # 🇹🇷 Türkçe isim varsa al, yoksa bilimsel ismi kullan
+            tr_name = common_names[0] if common_names else scientific_name
             score = float(best["score"])
             
-            # Türkçe isim ve bakım notu eşleştirme
-            # (Haftaya bunu tamamen otomatik veritabanından çekeceğiz)
-            info = PLANT_INFO.get(scientific_name, PLANT_INFO["Default"])
-            tr_name = info["tr"]
-            
-            # 4. BULUTA KAYDET (Frankfurt PostgreSQL)
-            yeni_kayit = TaramaGecmisi(
-                bitki_adi=scientific_name,
-                guven_orani=score,
-                bakim_notu=info["bakim"]
-            )
+            # Veritabanına kaydet
+            yeni_kayit = TaramaGecmisi(bitki_adi=scientific_name, guven_orani=score)
             db.add(yeni_kayit)
             db.commit()
             
             return {
-                "name": scientific_name,
-                "tr_name": tr_name,
-                "score": score,
-                "care": info["bakim"],
+                "tr_name": tr_name,     # Flutter'daki karşılığı
+                "scientific_name": scientific_name, 
+                "score": score,         # Flutter'daki karşılığı
                 "status": "Success"
             }
         
-        return {"error": "Bitki tanımlanamadı (0 sonuç)", "status": "Fail"}
+        return {"tr_name": "Bilinmeyen Bitki", "score": 0.0, "status": "Fail"}
 
     except Exception as e:
-        print(f"🔥 Hata Detayı: {str(e)}")
-        return {"error": str(e), "status": "Error"}
+        return {"tr_name": "Hata Oluştu", "score": 0.0, "status": "Error", "detail": str(e)}
     finally:
         db.close()
 
@@ -100,3 +88,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
