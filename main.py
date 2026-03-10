@@ -28,19 +28,30 @@ async def root():
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
-        # Fotoğrafı oku
         contents = await file.read()
         
-        # iNaturalist'in en sevdiği format: multipart/form-data
+        # 🧪 iNaturalist'in istediği tam paket
         files = {'image': (file.filename, contents, 'image/jpeg')}
         
-        # 🚀 İstek atarken timeout (zaman aşımı) ekliyoruz ki sistem asılı kalmasın
-        response = requests.post(INAT_URL, files=files, timeout=20)
-        
-        # Eğer cevap 200 değilse (hata varsa) direkt burada yakalayalım
+        # 🛡️ Boş parametreleri eklemezsek bazen 422 veya 400 hatası verebilir
+        data = {
+            'observation_id': '',
+            'geomodel': 'true'
+        }
+
+        # 🚀 Headers ekleyerek gerçek bir tarayıcı gibi davranıyoruz
+        headers = {
+            'User-Agent': 'GreenLensPro/1.0 (Kastamonu University Student Project)'
+        }
+
+        response = requests.post(INAT_URL, files=files, data=data, headers=headers, timeout=25)
+
+        # 🔍 Hatayı Loglarda Kabak Gibi Görelim
         if response.status_code != 200:
-            print(f"iNaturalist Hatası: {response.status_code} - {response.text}")
-            return {"scientific_name": "API Hatası", "score": 0.0, "status": "Error"}
+            print(f"--- iNaturalist KRITIK HATA ---")
+            print(f"Kod: {response.status_code}")
+            print(f"Mesaj: {response.text}")
+            return {"scientific_name": f"Hata: {response.status_code}", "score": 0.0, "status": "Error"}
 
         result_data = response.json()
 
@@ -48,31 +59,29 @@ async def predict(file: UploadFile = File(...), db: Session = Depends(get_db)):
             best = result_data["results"][0]
             taxon = best.get("taxon", {})
             
-            # İsim ve Skor ayıklama
+            # En iyi ismi yakala
             plant_name = taxon.get("preferred_common_name") or taxon.get("name") or "Bilinmeyen Tür"
             raw_score = best.get("vision_score") or best.get("combined_score") or 0.0
             score = float(raw_score) / 100 if raw_score > 1 else float(raw_score)
             
-            # Frankfurt Veritabanına Kayıt
+            # 🗄️ Veritabanı Kaydı
             try:
                 yeni_kayit = TaramaGecmisi(bitki_adi=plant_name, guven_orani=score)
                 db.add(yeni_kayit)
                 db.commit()
             except:
-                db.rollback() # Veritabanı hatası olsa bile sonucu döndür
+                db.rollback()
 
             return {"scientific_name": plant_name, "score": score, "status": "Success"}
         
         return {"scientific_name": "Bitki Tanınamadı", "score": 0.0, "status": "Fail"}
 
-    except requests.exceptions.RequestException as e:
-        print(f"Bağlantı Hatası: {str(e)}")
-        return {"scientific_name": "Hatta Sorun Var", "score": 0.0, "status": "Error"}
     except Exception as e:
-        print(f"Genel Hata: {str(e)}")
-        return {"scientific_name": "Sunucu Hatası", "score": 0.0, "status": "Error"}
+        print(f"Sistem Hatası: {str(e)}")
+        return {"scientific_name": "Sunucu Meşgul", "score": 0.0, "status": "Error"}
 
 @app.get("/history")
 async def get_history(db: Session = Depends(get_db)):
     return db.query(TaramaGecmisi).order_by(TaramaGecmisi.tarih.desc()).limit(20).all()
+
 
