@@ -27,7 +27,7 @@ PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_K
 async def root():
     return {"mesaj": "Green Lens Pro: Frankfurt Hattı Aktif! 🚀 PC'yi Kapatabilirsin Reis."}
 
-@app.post("/predict/")
+@app.post("/predict")
 async def predict(file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         contents = await file.read()
@@ -60,4 +60,5 @@ async def get_history(db: Session = Depends(get_db)):
     # Geçmişteki son 20 taramayı Frankfurt'tan çeker
     history = db.query(TaramaGecmisi).order_by(TaramaGecmisi.tarih.desc()).limit(20).all()
     return history
+
 
