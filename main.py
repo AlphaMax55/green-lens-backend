@@ -19,7 +19,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # 🎯 iNaturalist Görüntü Tanıma Adresi
-INAT_URL = "https://api.inaturalist.org/v1/computervision/score"
+INAT_URL = "https://api.inaturalist.org/v1/identifications"
 
 @app.get("/")
 async def root():
@@ -83,5 +83,6 @@ async def predict(file: UploadFile = File(...), db: Session = Depends(get_db)):
 @app.get("/history")
 async def get_history(db: Session = Depends(get_db)):
     return db.query(TaramaGecmisi).order_by(TaramaGecmisi.tarih.desc()).limit(20).all()
+
 
 
