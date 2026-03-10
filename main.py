@@ -28,6 +28,14 @@ async def root():
     return {"mesaj": "Green Lens Pro: Frankfurt Hattı Aktif! 🚀 PC'yi Kapatabilirsin Reis."}
 
 @app.post("/predict")
+
+
+# main.py içindeki predict fonksiyonunun içine şunu ekle:
+response = requests.post(PLANET_URL, files=files, data=data)
+result_data = response.json()
+
+# 🔍 LOGLARA BAKALIM: API tam olarak ne diyor?
+print(f"API Yanıtı: {result_data}")
 async def predict(file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         contents = await file.read()
@@ -50,7 +58,7 @@ async def predict(file: UploadFile = File(...), db: Session = Depends(get_db)):
             return {"scientific_name": scientific_name, "score": score, "status": "Success"}
         
         return {"scientific_name": "Bilinmeyen Tür", "score": 0.0, "status": "Fail"}
-
+  
     except Exception as e:
         print(f"Hata: {str(e)}")
         return {"scientific_name": "Bağlantı Hatası", "score": 0.0, "status": "Error"}
@@ -60,5 +68,6 @@ async def get_history(db: Session = Depends(get_db)):
     # Geçmişteki son 20 taramayı Frankfurt'tan çeker
     history = db.query(TaramaGecmisi).order_by(TaramaGecmisi.tarih.desc()).limit(20).all()
     return history
+
 
 
