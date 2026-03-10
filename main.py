@@ -20,7 +20,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # 🎯 API Anahtarını Koyeb'den güvenli çeker
-PLANET_API_KEY = os.getenv("PLANTNET_API_KEY", "2b10mlep2lyP5fp2wfjE3LUxe") 
+PLANET_API_KEY = os.getenv("PLANTNET_API_KEY", "2b10t9agHw2S9R0v0G2EclOGNe") 
 PLANET_URL = f"https://my-api.plantnet.org/v2/identify/all?api-key={PLANET_API_KEY}"
 
 @app.get("/")
@@ -68,6 +68,7 @@ async def get_history(db: Session = Depends(get_db)):
     # Geçmişteki son 20 taramayı Frankfurt'tan çeker
     history = db.query(TaramaGecmisi).order_by(TaramaGecmisi.tarih.desc()).limit(20).all()
     return history
+
 
 
 
